@@ -4,12 +4,19 @@ import React, { useState } from 'react';
 import { Player } from '@remotion/player';
 import { MainComposition } from '@/remotion/Composition';
 import { VideoDNA, WordTimestamp, GenerationState } from '@/types';
-import { Settings, Play, Download, Loader2, Sparkles, Video } from 'lucide-react';
+import { Settings, Play, Download, Loader2, Sparkles, Video, CheckCircle2 } from 'lucide-react';
 
 export default function AetherDashboard() {
   const [apiKey, setApiKey] = useState('');
   const [models, setModels] = useState<{ id: string; name: string }[]>([]);
   const [selectedModel, setSelectedModel] = useState('');
+  const [geminiVerified, setGeminiVerified] = useState(false);
+
+  const [ttsApiKey, setTtsApiKey] = useState('');
+  const [voices, setVoices] = useState<{ id: string; name: string }[]>([]);
+  const [selectedVoice, setSelectedVoice] = useState('');
+  const [ttsVerified, setTtsVerified] = useState(false);
+
   const [prompt, setPrompt] = useState('Explain string theory simply...');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
 
@@ -21,21 +28,48 @@ export default function AetherDashboard() {
     videoUrl: null,
   });
 
-  const fetchModels = async () => {
+  const verifyGemini = async () => {
     if (!apiKey) return;
-    const res = await fetch(`/api/models?apiKey=${apiKey}`);
-    const data = await res.json();
-    if (data.models) {
-      setModels(data.models);
-      setSelectedModel(data.models[0].id);
-    } else {
-      alert("Error: " + data.error);
+    try {
+      const res = await fetch(`/api/models?apiKey=${apiKey}`);
+      const data = await res.json();
+      if (data.models && data.models.length > 0) {
+        setModels(data.models);
+        setSelectedModel(data.models[0].id);
+        setGeminiVerified(true);
+      } else {
+        alert("Error: " + (data.error || "No models found"));
+        setGeminiVerified(false);
+      }
+    } catch (err) {
+      alert("Verification failed");
+      setGeminiVerified(false);
     }
   };
 
+  const verifyTTS = async () => {
+    if (!ttsApiKey) return;
+    try {
+      const res = await fetch(`/api/voices?apiKey=${ttsApiKey}`);
+      const data = await res.json();
+      if (data.voices && data.voices.length > 0) {
+        setVoices(data.voices);
+        setSelectedVoice(data.voices[0].id);
+        setTtsVerified(true);
+      } else {
+        alert("Error: " + (data.error || "No voices found"));
+        setTtsVerified(false);
+      }
+    } catch (err) {
+      alert("TTS Verification failed");
+      setTtsVerified(false);
+    }
+  }
+
   const startGeneration = async () => {
     try {
-      if (!apiKey || !selectedModel) return alert("Need API configuration");
+      if (!geminiVerified || !ttsVerified || !selectedModel || !selectedVoice) return alert("Verify all API keys first");
+
       setState({ ...state, status: 'generating_dna', progress: 10, error: undefined });
 
       const dnaRes = await fetch('/api/generate-dna', {
@@ -52,7 +86,7 @@ export default function AetherDashboard() {
 
       const ttsRes = await fetch('/api/tts', {
         method: 'POST',
-        body: JSON.stringify({ text: script })
+        body: JSON.stringify({ text: script, apiKey: ttsApiKey, voiceName: selectedVoice })
       });
       const ttsData = await ttsRes.json();
       if (!ttsRes.ok) throw new Error(ttsData.error);
@@ -104,30 +138,37 @@ export default function AetherDashboard() {
 
       <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-[#0A0F1D] p-6 rounded-2xl border border-cyan-900/40 shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all">
-            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Settings className="w-5 h-5 text-cyan-400" />
-              API Configuration
+          {/* Step 1: Gemini Keys */}
+          <div className={`bg-[#0A0F1D] p-6 rounded-2xl border ${geminiVerified ? 'border-green-900/40' : 'border-cyan-900/40'} shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all`}>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <Settings className={geminiVerified ? "w-5 h-5 text-green-400" : "w-5 h-5 text-cyan-400"} />
+                1. Gemini API Key
+              </div>
+              {geminiVerified && <CheckCircle2 className="w-5 h-5 text-green-400" />}
             </h2>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-cyan-200/60 mb-1">Gemini API Key</label>
+              <div className="relative">
                 <input
                   type="password"
                   value={apiKey}
-                  onChange={e => setApiKey(e.target.value)}
-                  onBlur={fetchModels}
-                  className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 transition-colors placeholder-cyan-900/50"
+                  onChange={e => { setApiKey(e.target.value); setGeminiVerified(false); }}
+                  className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 pr-20 focus:outline-none focus:border-cyan-400 transition-colors placeholder-cyan-900/50"
                   placeholder="AIzaSy..."
                 />
+                {!geminiVerified && (
+                  <button onClick={verifyGemini} className="absolute right-1 top-1 text-xs px-3 py-1 bg-cyan-900/40 text-cyan-300 rounded hover:bg-cyan-900/60 transition-colors">
+                    Verify
+                  </button>
+                )}
               </div>
-              {models.length > 0 && (
-                <div>
-                  <label className="block text-sm text-cyan-200/60 mb-1">Model Selection</label>
+              {geminiVerified && models.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-xs text-cyan-200/60 mb-1">Model Selection</label>
                   <select
                     value={selectedModel}
                     onChange={e => setSelectedModel(e.target.value)}
-                    className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-[#050812] text-sm border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400"
                   >
                     {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
@@ -136,10 +177,50 @@ export default function AetherDashboard() {
             </div>
           </div>
 
-          <div className="bg-[#0A0F1D] p-6 rounded-2xl border border-cyan-900/40 shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all">
+          {/* Step 2: TTS Keys */}
+          <div className={`bg-[#0A0F1D] p-6 rounded-2xl border ${!geminiVerified ? 'border-gray-900/40 opacity-50 pointer-events-none' : ttsVerified ? 'border-green-900/40' : 'border-cyan-900/40'} shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all`}>
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <Settings className={ttsVerified ? "w-5 h-5 text-green-400" : "w-5 h-5 text-cyan-400"} />
+                2. Google Cloud TTS Key
+              </div>
+              {ttsVerified && <CheckCircle2 className="w-5 h-5 text-green-400" />}
+            </h2>
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="password"
+                  value={ttsApiKey}
+                  onChange={e => { setTtsApiKey(e.target.value); setTtsVerified(false); }}
+                  className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 pr-20 focus:outline-none focus:border-cyan-400 transition-colors placeholder-cyan-900/50"
+                  placeholder="Google Cloud API Key..."
+                />
+                {!ttsVerified && (
+                  <button onClick={verifyTTS} className="absolute right-1 top-1 text-xs px-3 py-1 bg-cyan-900/40 text-cyan-300 rounded hover:bg-cyan-900/60 transition-colors">
+                    Verify
+                  </button>
+                )}
+              </div>
+              {ttsVerified && voices.length > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <label className="block text-xs text-cyan-200/60 mb-1">Voice Selection (US English)</label>
+                  <select
+                    value={selectedVoice}
+                    onChange={e => setSelectedVoice(e.target.value)}
+                    className="w-full bg-[#050812] text-sm border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400"
+                  >
+                    {voices.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 3: Generation (Protected) */}
+          <div className={`bg-[#0A0F1D] p-6 rounded-2xl border border-cyan-900/40 shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all ${(!geminiVerified || !ttsVerified) ? 'opacity-50 pointer-events-none' : ''}`}>
             <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-cyan-400" />
-              Generation Prompt
+              3. Generation Prompt
             </h2>
             <textarea
               value={prompt}
@@ -159,7 +240,7 @@ export default function AetherDashboard() {
 
             <button
               onClick={startGeneration}
-              disabled={state.status.includes('generating')}
+              disabled={state.status.includes('generating') || !geminiVerified || !ttsVerified}
               className="w-full mt-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium py-3 rounded-lg shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {state.status.includes('generating') ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
@@ -227,7 +308,11 @@ export default function AetherDashboard() {
                 <Play className="w-8 h-8 opacity-50 ml-1" />
               </div>
               <p className="text-lg font-medium opacity-80 tracking-wide mt-2">Aether Engine Ready</p>
-              <p className="text-sm opacity-50 max-w-xs text-center">Enter your Google API keys and a prompt to synthesize Video DNA.</p>
+              {(!geminiVerified || !ttsVerified) ? (
+                <p className="text-sm opacity-50 max-w-xs text-center">Verify your API keys to unlock the generation sandbox.</p>
+              ) : (
+                <p className="text-sm opacity-50 max-w-xs text-center">Keys verified. Enter a prompt to synthesize Video DNA.</p>
+              )}
             </div>
           )}
         </div>

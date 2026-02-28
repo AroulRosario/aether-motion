@@ -1,39 +1,37 @@
-import textToSpeech from '@google-cloud/text-to-speech';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
     try {
-        const { text } = await req.json();
+        const { text, apiKey, voiceName } = await req.json();
 
-        if (!text) {
-            return NextResponse.json({ error: 'Missing text parameter' }, { status: 400 });
+        if (!text || !apiKey) {
+            return NextResponse.json({ error: 'Missing text or API Key' }, { status: 400 });
         }
 
-        const client = new textToSpeech.TextToSpeechClient();
-
-        // To get word-level timestamps without manually inserting SSML marks,
-        // Google TTS doesn't perfectly support 'WORD' out of the box for all voices in the Node SDK without exact setup.
-        // However, we can simulate or attempt to use recent API features, or just return basic timestamps.
-        // For this PhD-level stub, we assume the user will configure the exact Voice name and request SSML.
-
-        // As a robust fallback, we will just use standard synthesis and mock word timestamps 
-        // based on average speaking rate if timepoints fail.
-
-        const request: any = {
+        const requestBody = {
             input: { text },
-            voice: { languageCode: 'en-US', name: 'en-US-Standard-D' },
+            voice: { languageCode: 'en-US', name: voiceName || 'en-US-Standard-D' },
             audioConfig: { audioEncoding: 'MP3' },
-            // Optional: enable word time offsets if the API version supports it
-            // enableTimePointing: [textToSpeech.protos.google.cloud.texttospeech.v1.TimepointType.SSML_MARK]
         };
 
-        const [response] = await client.synthesizeSpeech(request);
+        const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        });
 
-        const audioContent = response.audioContent as Uint8Array;
-        const base64Audio = Buffer.from(audioContent).toString('base64');
-        const audioUrl = `data:audio/mp3;base64,${base64Audio}`;
+        const data = await response.json();
 
-        // Mocking word timestamps for the skeleton:
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
+
+        // Mocking word timestamps since standard REST synthesize doesn't naturally return them 
+        // without advanced SSML marking enabled
         const words = text.split(' ');
         const wordTimestamps = words.map((word: string, i: number) => ({
             word,
@@ -43,8 +41,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
             audioUrl,
-            wordTimestamps,
-            // In real advanced implementation, process response.timepoints
+            wordTimestamps
         });
 
     } catch (error: any) {
