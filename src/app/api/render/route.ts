@@ -11,23 +11,12 @@ export async function POST(req: Request) {
 
         // In a production specific Vercel deployment, `@remotion/lambda` is required.
         // Vercel Serverless functions cannot easily run Chromium to render video.
-        // We will simulate the `npx remotion render` step conceptually for the prototype.
-        // A robust local fallback:
-
-        // const { exec } = require('child_process');
-        // exec(`npx remotion render src/remotion/Root.tsx ${compositionId} out/video.mp4 --props='${JSON.stringify(inputProps)}'`);
-
-        // We'll mock the resulting Blob generation for the UI logic to complete:
-        const dummyBlobUrl = 'https://example.com/mock-rendered-video.mp4';
-
-        // If you have a real buffer from local render:
-        // const blob = await put('rendered-video.mp4', videoBuffer, { access: 'public' });
-
+        // Instead of mocking a dummy URL, we will explicitly inform the user.
         return NextResponse.json({
-            success: true,
-            videoUrl: dummyBlobUrl,
-            message: 'Render triggered successfully. (Mocked for Vercel Serverless compatibility)'
-        });
+            success: false,
+            error: 'Cloud Video Rendering requires deploying Remotion Lambda with AWS credentials. Vercel Serverless restricts full Chromium processes. To render MP4s, run `npx remotion render` locally.',
+            videoUrl: null
+        }, { status: 501 });
 
     } catch (error: any) {
         console.error('Error rendering:', error);

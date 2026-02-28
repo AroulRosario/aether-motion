@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { AbsoluteFill, Audio, Sequence, useVideoConfig } from 'remotion';
 import { PhantomSubtitles } from './PhantomSubtitles';
 import { DynamicBackground } from './DynamicBackground';
@@ -14,15 +14,41 @@ export interface MainCompositionProps {
 export const MainComposition: React.FC<MainCompositionProps> = ({ dna, audioUrl, wordTimestamps, aspectRatio }) => {
     const { fps, width, height } = useVideoConfig();
 
+    // We need to calculate start and end times for each DNA sentence based on word timestamps
+    const dnaWithTimestamps = useMemo(() => {
+        if (!dna || !wordTimestamps || wordTimestamps.length === 0) return [];
+
+        let currentWordIndex = 0;
+
+        return dna.map(element => {
+            const sentenceWords = element.sentence.split(/\s+/).filter(w => w.trim().length > 0);
+            const numWords = sentenceWords.length;
+
+            const startWord = wordTimestamps[currentWordIndex];
+            const endWordIndex = Math.min(currentWordIndex + numWords - 1, wordTimestamps.length - 1);
+            const endWord = wordTimestamps[endWordIndex];
+
+            const startTime = startWord ? startWord.startTime : 0;
+            const endTime = endWord ? endWord.endTime : startTime + (numWords * 0.4); // fallback
+
+            currentWordIndex += numWords;
+
+            return {
+                ...element,
+                timestamp: [startTime, endTime]
+            };
+        });
+    }, [dna, wordTimestamps]);
+
     return (
         <AbsoluteFill style={{ backgroundColor: '#0A0F1D' }}> {/* Midnight Blue base */}
             {/* Dynamic Background generated per-DNA segment */}
             <DynamicBackground dna={dna} width={width} height={height} />
 
             {/* Main DNA Elements Sequence - Mapping Sentences to Subtitles & Animations */}
-            {dna && dna.length > 0 && dna.map((element, index) => {
-                const startFrame = Math.floor(element.timestamp[0] * fps);
-                const endFrame = Math.floor(element.timestamp[1] * fps);
+            {dnaWithTimestamps.map((element, index) => {
+                const startFrame = Math.max(0, Math.floor(element.timestamp[0] * fps));
+                const endFrame = Math.max(1, Math.floor(element.timestamp[1] * fps));
                 const duration = Math.max(1, endFrame - startFrame);
 
                 return (
