@@ -8,7 +8,7 @@ export const RemotionRoot: React.FC = () => {
         <>
             <Composition
                 id="AetherVideo-16x9"
-                component={MainComposition}
+                component={MainComposition as React.FC<any>}
                 durationInFrames={600}
                 fps={30}
                 width={1920}
@@ -23,7 +23,7 @@ export const RemotionRoot: React.FC = () => {
 
             <Composition
                 id="AetherVideo-9x16"
-                component={MainComposition}
+                component={MainComposition as React.FC<any>}
                 durationInFrames={600}
                 fps={30}
                 width={1080}
