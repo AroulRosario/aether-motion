@@ -1,63 +1,235 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import React, { useState } from 'react';
+import { Player } from '@remotion/player';
+import { MainComposition } from '@/remotion/Composition';
+import { VideoDNA, WordTimestamp, GenerationState } from '@/types';
+import { Settings, Play, Download, Loader2, Sparkles, Video } from 'lucide-react';
+
+export default function AetherDashboard() {
+  const [apiKey, setApiKey] = useState('');
+  const [models, setModels] = useState<{ id: string; name: string }[]>([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [prompt, setPrompt] = useState('Explain string theory simply...');
+  const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
+
+  const [state, setState] = useState<GenerationState>({
+    progress: 0,
+    status: 'idle',
+    dna: null,
+    audioUrl: null,
+    videoUrl: null,
+  });
+
+  const fetchModels = async () => {
+    if (!apiKey) return;
+    const res = await fetch(`/api/models?apiKey=${apiKey}`);
+    const data = await res.json();
+    if (data.models) {
+      setModels(data.models);
+      setSelectedModel(data.models[0].id);
+    } else {
+      alert("Error: " + data.error);
+    }
+  };
+
+  const startGeneration = async () => {
+    try {
+      if (!apiKey || !selectedModel) return alert("Need API configuration");
+      setState({ ...state, status: 'generating_dna', progress: 10, error: undefined });
+
+      const dnaRes = await fetch('/api/generate-dna', {
+        method: 'POST',
+        body: JSON.stringify({ apiKey, model: selectedModel, prompt }),
+      });
+      const dnaData = await dnaRes.json();
+      if (!dnaRes.ok) throw new Error(dnaData.error);
+      const dna = dnaData.dna;
+
+      setState(prev => ({ ...prev, status: 'generating_tts', progress: 50, dna }));
+
+      const script = dna.map((d: any) => d.sentence).join(' ');
+
+      const ttsRes = await fetch('/api/tts', {
+        method: 'POST',
+        body: JSON.stringify({ text: script })
+      });
+      const ttsData = await ttsRes.json();
+      if (!ttsRes.ok) throw new Error(ttsData.error);
+
+      setState(prev => ({
+        ...prev,
+        status: 'done',
+        progress: 100,
+        audioUrl: ttsData.audioUrl,
+        wordTimestamps: ttsData.wordTimestamps
+      }));
+
+    } catch (err: any) {
+      setState(prev => ({ ...prev, status: 'error', error: err.message, progress: 0 }));
+    }
+  };
+
+  const renderVideo = async () => {
+    setState(prev => ({ ...prev, status: 'rendering', progress: 50 }));
+    const res = await fetch('/api/render', {
+      method: 'POST',
+      body: JSON.stringify({
+        compositionId: `AetherVideo-${aspectRatio.replace(':', 'x')}`,
+        inputProps: {
+          dna: state.dna,
+          audioUrl: state.audioUrl,
+          wordTimestamps: state.wordTimestamps,
+          aspectRatio
+        }
+      })
+    });
+    const data = await res.json();
+    setState(prev => ({ ...prev, status: 'done', progress: 100, videoUrl: data.videoUrl }));
+    alert(data.message);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-[#050812] text-white selection:bg-cyan-500/30 font-sans">
+      <nav className="border-b border-cyan-900/50 bg-[#0A0F1D]/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Video className="w-6 h-6 text-cyan-400" />
+            <span className="font-bold text-xl tracking-wide bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+              Aether-Motion
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+      </nav>
+
+      <main className="max-w-7xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-4 space-y-6">
+          <div className="bg-[#0A0F1D] p-6 rounded-2xl border border-cyan-900/40 shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Settings className="w-5 h-5 text-cyan-400" />
+              API Configuration
+            </h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-cyan-200/60 mb-1">Gemini API Key</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={e => setApiKey(e.target.value)}
+                  onBlur={fetchModels}
+                  className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400 transition-colors placeholder-cyan-900/50"
+                  placeholder="AIzaSy..."
+                />
+              </div>
+              {models.length > 0 && (
+                <div>
+                  <label className="block text-sm text-cyan-200/60 mb-1">Model Selection</label>
+                  <select
+                    value={selectedModel}
+                    onChange={e => setSelectedModel(e.target.value)}
+                    className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-2 focus:outline-none focus:border-cyan-400"
+                  >
+                    {models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-[#0A0F1D] p-6 rounded-2xl border border-cyan-900/40 shadow-[0_0_30px_rgba(0,255,255,0.02)] transition-all">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-cyan-400" />
+              Generation Prompt
+            </h2>
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              rows={4}
+              className="w-full bg-[#050812] border border-cyan-900/50 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-400 transition-colors resize-none mb-4"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+            <div className="flex gap-2">
+              <button onClick={() => setAspectRatio('16:9')} className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-all ${aspectRatio === '16:9' ? 'border-cyan-400 bg-cyan-900/40 text-cyan-300' : 'border-cyan-900/50 text-cyan-500/50 hover:border-cyan-700'}`}>
+                16:9 YouTube
+              </button>
+              <button onClick={() => setAspectRatio('9:16')} className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-all ${aspectRatio === '9:16' ? 'border-cyan-400 bg-cyan-900/40 text-cyan-300' : 'border-cyan-900/50 text-cyan-500/50 hover:border-cyan-700'}`}>
+                9:16 Shorts/TikTok
+              </button>
+            </div>
+
+            <button
+              onClick={startGeneration}
+              disabled={state.status.includes('generating')}
+              className="w-full mt-6 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium py-3 rounded-lg shadow-[0_0_20px_rgba(0,255,255,0.2)] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {state.status.includes('generating') ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+              {state.status === 'idle' || state.status === 'done' || state.status === 'error' ? 'Generate Video DNA' : 'Generating Pipeline...'}
+            </button>
+
+            {state.status !== 'idle' && (
+              <div className="mt-6 space-y-2">
+                <div className="flex justify-between text-xs font-medium text-cyan-300 text-opacity-80">
+                  <span className="capitalize">{state.status.replace('_', ' ')}</span>
+                  <span>{state.progress}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-[#050812] rounded-full overflow-hidden border border-cyan-900/30">
+                  <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500" style={{ width: `${state.progress}%` }}></div>
+                </div>
+              </div>
+            )}
+            {state.error && <p className="mt-4 text-sm text-red-400 text-center">{state.error}</p>}
+          </div>
+        </div>
+
+        <div className="lg:col-span-8 flex flex-col items-center justify-center min-h-[600px] bg-[#0A0F1D] rounded-3xl border border-cyan-900/30 p-8 shadow-[inset_0_0_50px_rgba(0,0,0,0.5)]">
+          {state.dna && state.audioUrl ? (
+            <div className="w-full flex justify-center flex-col items-center">
+              <Player
+                component={MainComposition}
+                inputProps={{
+                  dna: state.dna,
+                  audioUrl: state.audioUrl,
+                  wordTimestamps: state.wordTimestamps || [],
+                  aspectRatio
+                }}
+                durationInFrames={Math.ceil((state.wordTimestamps?.[state.wordTimestamps.length - 1]?.endTime || 20) * 30)}
+                fps={30}
+                compositionWidth={aspectRatio === '16:9' ? 1920 : 1080}
+                compositionHeight={aspectRatio === '16:9' ? 1080 : 1920}
+                style={{
+                  width: '100%',
+                  maxWidth: aspectRatio === '16:9' ? '100%' : '350px',
+                  aspectRatio: aspectRatio.replace(':', '/'),
+                  borderRadius: '0.75rem',
+                  boxShadow: '0 0 50px rgba(0,255,255,0.1)'
+                }}
+                controls
+                autoPlay
+              />
+
+              <button
+                onClick={renderVideo}
+                disabled={state.status === 'rendering'}
+                className="mt-8 flex items-center gap-2 px-6 py-3 bg-[#050812] border border-cyan-500/50 hover:bg-cyan-900/50 text-cyan-300 hover:text-white rounded-lg transition-all shadow-[0_0_15px_rgba(0,255,255,0.1)]"
+              >
+                {state.status === 'rendering' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
+                {state.status === 'rendering' ? 'Vercel Sandbox Rendering...' : 'Render Node & Export MP4'}
+              </button>
+              {state.videoUrl && (
+                <a href={state.videoUrl} target="_blank" className="mt-4 text-sm font-medium text-cyan-400 hover:text-cyan-300 transition-colors flex items-center gap-1">
+                  <Download className="w-4 h-4" /> Download Final Output
+                </a>
+              )}
+            </div>
+          ) : (
+            <div className="text-cyan-600/50 flex flex-col items-center gap-4">
+              <div className="w-24 h-24 rounded-full border border-cyan-900/50 flex items-center justify-center bg-[#050812] shadow-[0_0_30px_rgba(0,255,255,0.05)]">
+                <Play className="w-8 h-8 opacity-50 ml-1" />
+              </div>
+              <p className="text-lg font-medium opacity-80 tracking-wide mt-2">Aether Engine Ready</p>
+              <p className="text-sm opacity-50 max-w-xs text-center">Enter your Google API keys and a prompt to synthesize Video DNA.</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

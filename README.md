@@ -1,36 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Aether-Motion
 
-## Getting Started
+An intelligent, production-grade Video Generation SaaS using Next.js, Remotion, and Gemini. Aether-Motion generates "Video-DNA" (JSON mappings of narrative sequences to mathematical animations) from text and renders them on demand.
 
-First, run the development server:
+## Core Stack
+- **Framework**: Next.js (App Router)
+- **Video Generation**: Remotion & `@remotion/player`
+- **AI Integration**: Google Gemini API (`@google/genai`) 
+- **Voice System**: Google Cloud Text-to-Speech with word-sync tracking
+- **Deployment Strategy**: Vercel (Frontend & Blob) + Sandbox Node Rendering
+- **Styling**: TailwindCSS & React Inline Overrides (Midnight Blue & Cyan Core)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Environment Variables
+Create a `.env.local` file at the root of your project:
+
+```env
+# Required if you want the backend to default to server-side Gemini generation.
+# Alternatively, users can enter keys in the Dashboard securely.
+GEMINI_API_KEY=AIzaSy_YOUR_API_KEY
+
+# Required for Google Cloud TTS (Must point to your GCP service account JSON file)
+# In Vercel prod, you can use GOOGLE_CREDENTIALS containing the actual stringified JSON.
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/your/service-account.json
+
+# Required to store rendered videos
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running Locally
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Initialize project dependencies: `npm install`
+2. Start development server: `npm run dev`
+3. **Usage Flow**:
+    - Input API Key (if not relying on env) & Load available models.
+    - Write a prompt describing the topic to synthesize.
+    - Start the `Generate Video DNA` pipeline. The backend will interface with Gemini to produce structured `Video-DNA` and TTS arrays.
+    - Preview real-time rendering in `@remotion/player` natively in the cloud dashboard.
+    - Click Render to execute background task.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Future Production Rendering
+For native continuous Vercel integration, `@remotion/lambda` deployed on AWS is highly recommended. Native `npx remotion render` within a typical Vercel Edge/Serverless function can sometimes hit limits on the Chromium footprint. The application code serves as an extendable foundation pointing directly toward Blob storage routing over AWS/Vercel boundaries.
