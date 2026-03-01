@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { AbsoluteFill, Audio, Sequence, useVideoConfig } from 'remotion';
 import { PhantomSubtitles } from './PhantomSubtitles';
 import { DynamicBackground } from './DynamicBackground';
+import { ExplainerVisuals } from './ExplainerVisuals';
 import { VideoDNA, WordTimestamp } from '../types';
 
 export interface MainCompositionProps {
@@ -33,9 +34,11 @@ export const MainComposition: React.FC<MainCompositionProps> = ({ dna, audioUrl,
 
             currentWordIndex += numWords;
 
+            const timestampTuple: [number, number] = [startTime, endTime];
+
             return {
                 ...element,
-                timestamp: [startTime, endTime]
+                timestamp: timestampTuple
             };
         });
     }, [dna, wordTimestamps]);
@@ -54,13 +57,18 @@ export const MainComposition: React.FC<MainCompositionProps> = ({ dna, audioUrl,
                 return (
                     <Sequence key={index} from={startFrame} durationInFrames={duration}>
                         <AbsoluteFill style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <PhantomSubtitles
-                                sentence={element.sentence}
-                                wordTimestamps={wordTimestamps}
-                                animationType={element.animation_type}
-                                startSeconds={element.timestamp[0]}
-                                endSeconds={element.timestamp[1]}
-                            />
+                            <ExplainerVisuals element={element} />
+
+                            {/* Move subtitles to the lower third to accommodate the explosion visual */}
+                            <div style={{ position: 'absolute', bottom: '15%', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                                <PhantomSubtitles
+                                    sentence={element.sentence}
+                                    wordTimestamps={wordTimestamps}
+                                    animationType={element.animation_type}
+                                    startSeconds={element.timestamp[0]}
+                                    endSeconds={element.timestamp[1]}
+                                />
+                            </div>
                         </AbsoluteFill>
                     </Sequence>
                 );
