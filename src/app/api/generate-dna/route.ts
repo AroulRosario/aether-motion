@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI, Type, Schema } from '@google/genai';
+
 
 export const maxDuration = 60; // 60 seconds max duration (works on pro)
 export const runtime = 'edge'; // Edge function (provides better stream/execution profiles on Hobby limit)
@@ -12,23 +12,21 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
         }
 
-        const ai = new GoogleGenAI({ apiKey });
-
-        const responseSchema: Schema = {
-            type: Type.ARRAY,
+        const responseSchema = {
+            type: "ARRAY",
             description: "List of DNA elements for the video",
             items: {
-                type: Type.OBJECT,
+                type: "OBJECT",
                 properties: {
-                    sentence: { type: Type.STRING, description: "The sentence to be spoken." },
+                    sentence: { type: "STRING", description: "The sentence to be spoken." },
                     animation_type: {
-                        type: Type.STRING,
+                        type: "STRING",
                         description: "The animation style. Must pick one.",
                         enum: ["dynamic", "slide", "fade", "zoom", "spring"]
                     },
                     visual_tags: {
-                        type: Type.ARRAY,
-                        items: { type: Type.STRING },
+                        type: "ARRAY",
+                        items: { type: "STRING" },
                         description: "Visual thematic tags like 'blue-neon', 'abstract', etc."
                     }
                 },
@@ -36,30 +34,50 @@ export async function POST(req: Request) {
             }
         };
 
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: prompt + `\n\nBreak this down into sentences for a highly polished educational animated video. 
-            For each sentence, provide a highly detailed set of 'visual_tags' that describe exactly what should happen on screen.
-            
-            CRITICAL: If the prompt is about chemistry (like SN1, SN2, Markovnikov), you MUST break the reaction down mechanically step-by-step and use these exact mechanical tags to trigger the engine animations:
-            - 'sn1_leaving_group' (to trigger a bond breaking and an atom detaching)
-            - 'sn1_nucleophile_attack' (to trigger a nucleophile atom attacking a carbocation)
-            - 'electron_flow' (to trigger glowing arrows moving between atoms)
-            - 'carbocation' (to trigger a glowing positive molecule state)
-            - 'markovnikov_addition' (to trigger two separate atoms colliding and bonding)
-            
-            Ensure the script is detailed, paced well, and explains the concept thoroughly with corresponding tags.`,
-            config: {
+        const fetchBody = {
+            contents: [{
+                parts: [{
+                    text: prompt + `\n\nACT AS A MASTER LEVEL CREATIVE DIRECTOR AND SCIENTIFIC EXPLAINER.
+Break this down into sentences for a highly polished, educational animated video. 
+For each sentence, write in EXTREME detail what the exact visual on screen should be. The script should be lengthy, accurate, and scene-by-scene perfectly aligned with the visuals.
+
+CRITICAL: If the prompt is about chemistry (like SN1, SN2, Markovnikov, Aldol Condensation), you MUST break the reaction down mechanically step-by-step and use these exact mechanical tags in the 'visual_tags' array to trigger the engine animations:
+- 'sn1_leaving_group' (to trigger a bond breaking and an atom/group detaching)
+- 'sn1_nucleophile_attack' (to trigger a nucleophile atom attacking a carbocation or electrophile)
+- 'electron_flow' (to trigger glowing arrows moving between atoms)
+- 'carbocation' (to trigger a glowing positive molecule state)
+- 'markovnikov_addition' (to trigger two separate atoms colliding and bonding)
+- 'chemistry' (ALWAYS include this tag if the topic is chemistry so the engine knows to route it correctly)
+
+Ensure the script is very detailed, scene-by-scene accurate, paced well, and explains the concept flawlessly. The visual_tags must be accurate and specifically chosen from the exact list above to trigger the 2D physics engine. Do not hallucinate non-existent chemistry tags. Make the visual description as vivid as possible.`
+                }]
+            }],
+            generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema
             }
+        };
+
+        const modelName = model.startsWith('models/') ? model : `models/${model}`;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fetchBody)
         });
 
-        if (response.text) {
-            const dna = JSON.parse(response.text);
+        const data = await res.json();
+
+        if (data.error) {
+            throw new Error(data.error.message);
+        }
+
+        const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (generatedText) {
+            const dna = JSON.parse(generatedText);
             return NextResponse.json({ dna });
         } else {
-            throw new Error('No text generated');
+            throw new Error('No valid text returned from Gemini API');
         }
 
     } catch (error: any) {

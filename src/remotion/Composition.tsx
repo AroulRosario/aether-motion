@@ -67,6 +67,7 @@ export const MainComposition: React.FC<MainCompositionProps> = ({ dna, audioUrl,
                                     animationType={element.animation_type}
                                     startSeconds={element.timestamp[0]}
                                     endSeconds={element.timestamp[1]}
+                                    visualTags={element.visual_tags}
                                 />
                             </div>
                         </AbsoluteFill>

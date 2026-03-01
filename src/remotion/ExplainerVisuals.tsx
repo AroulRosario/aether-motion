@@ -11,7 +11,8 @@ export const ExplainerVisuals: React.FC<ExplainerVisualsProps> = ({ element }) =
     const { fps } = useVideoConfig();
 
     const tags = element.visual_tags.map(t => t.toLowerCase());
-    const isChemistry = tags.some(t => t.includes('chem') || t.includes('atom') || t.includes('reaction') || t.includes('molecule'));
+    // Expanded chemistry terms to catch mechanical tags that Gemini spits out instead of generic 'chem'
+    const isChemistry = tags.some(t => t.includes('chem') || t.includes('atom') || t.includes('reaction') || t.includes('molecule') || t.includes('sn1') || t.includes('sn2') || t.includes('nucleophil') || t.includes('carboca') || t.includes('electron') || t.includes('bond') || t.includes('leaving'));
     const isNetwork = tags.some(t => t.includes('net') || t.includes('data') || t.includes('node') || t.includes('connect'));
     const isFinance = tags.some(t => t.includes('finance') || t.includes('money') || t.includes('graph') || t.includes('growth'));
 
@@ -58,7 +59,7 @@ const ChemistryScene: React.FC<{ frame: number; fps: number; element: DNAElement
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '200px', height: '200px', bottom: '150px' }}>
+            <div style={{ position: 'relative', width: '200px', height: '200px', bottom: '150px', transform: 'scale(1.8)' }}>
                 {/* Bond */}
                 <div style={{
                     position: 'absolute', top: '50%', left: '50%', height: '8px',
@@ -107,7 +108,7 @@ const SN1LeavingGroupScene: React.FC<{ frame: number; fps: number }> = ({ frame,
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '300px', height: '200px', bottom: '150px' }}>
+            <div style={{ position: 'relative', width: '300px', height: '200px', bottom: '150px', transform: 'scale(1.8)' }}>
                 {/* Central Carbocation */}
                 <div style={{
                     position: 'absolute', top: '50%', left: '30%', width: '90px', height: '90px',
@@ -150,7 +151,7 @@ const SN1AttackScene: React.FC<{ frame: number; fps: number }> = ({ frame, fps }
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '300px', height: '300px', bottom: '150px' }}>
+            <div style={{ position: 'relative', width: '300px', height: '300px', bottom: '150px', transform: 'scale(1.8)' }}>
                 {/* Central Carbocation */}
                 <div style={{
                     position: 'absolute', top: '40%', left: '50%', width: '90px', height: '90px',
@@ -192,7 +193,7 @@ const CarbocationScene: React.FC<{ frame: number; fps: number }> = ({ frame, fps
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '200px', height: '200px', bottom: '150px' }}>
+            <div style={{ position: 'relative', width: '200px', height: '200px', bottom: '150px', transform: 'scale(1.8)' }}>
                 <div style={{
                     position: 'absolute', top: '50%', left: '50%', width: `calc(100px + ${pulse}px)`, height: `calc(100px + ${pulse}px)`,
                     backgroundColor: '#3366FF', borderRadius: '50%', transform: 'translate(-50%, -50%)',
@@ -224,7 +225,7 @@ const ElectronFlowScene: React.FC<{ frame: number; fps: number }> = ({ frame, fp
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '300px', height: '200px', bottom: '150px' }}>
+            <div style={{ position: 'relative', width: '300px', height: '200px', bottom: '150px', transform: 'scale(1.8)' }}>
                 {/* Atom 1 */}
                 <div style={{ position: 'absolute', top: '50%', left: '25%', width: '60px', height: '60px', backgroundColor: '#555', borderRadius: '50%', transform: 'translate(-50%, -50%)' }} />
                 {/* Atom 2 */}
@@ -281,24 +282,46 @@ const NetworkScene: React.FC<{ frame: number; fps: number; element: DNAElement }
 };
 
 const GrowthScene: React.FC<{ frame: number; fps: number; element: DNAElement }> = ({ frame, fps }) => {
-    const width = spring({ fps, frame, config: { damping: 15 } }) * 200;
-    const height = spring({ fps, frame: frame - 15, config: { damping: 15 } }) * 150;
+    // A Staggered Professional 3D-ish Bar Chart
+    const columns = 6;
 
     return (
         <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', pointerEvents: 'none' }}>
-            <div style={{ position: 'relative', width: '300px', height: '200px', bottom: '150px', borderBottom: '2px solid #00FFFF', borderLeft: '2px solid #00FFFF' }}>
-                <div style={{
-                    position: 'absolute', bottom: 0, left: '20px', width: '60px', height: `${height * 0.4}px`,
-                    backgroundColor: 'rgba(0, 255, 255, 0.4)', border: '1px solid #00FFFF'
-                }} />
-                <div style={{
-                    position: 'absolute', bottom: 0, left: '100px', width: '60px', height: `${height * 0.7}px`,
-                    backgroundColor: 'rgba(0, 255, 255, 0.7)', border: '1px solid #00FFFF'
-                }} />
-                <div style={{
-                    position: 'absolute', bottom: 0, left: '180px', width: '60px', height: `${height}px`,
-                    backgroundColor: '#00FFFF', boxShadow: '0 0 20px rgba(0,255,255,0.8)'
-                }} />
+            <div style={{ position: 'relative', width: '400px', height: '250px', bottom: '150px', borderBottom: '3px solid rgba(0, 255, 255, 0.8)', borderLeft: '3px solid rgba(0, 255, 255, 0.8)' }}>
+                {Array.from({ length: columns }).map((_, i) => {
+                    const targetHeight = 50 + (i * 35); // Escalating pattern
+                    const height = spring({ fps, frame: frame - (i * 5), config: { damping: 15 } }) * targetHeight;
+
+                    return (
+                        <div key={`col-${i}`} style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: `${20 + (i * 60)}px`,
+                            width: '45px',
+                            height: `${height}px`,
+                            background: `linear-gradient(to top, rgba(0, 150, 255, 0.4), rgba(0, 255, 255, ${0.4 + (i * 0.1)}))`,
+                            border: '1px solid #00FFFF',
+                            borderBottom: 'none',
+                            borderTopLeftRadius: '4px',
+                            borderTopRightRadius: '4px',
+                            boxShadow: i === columns - 1 ? '0 0 30px rgba(0,255,255,0.6)' : 'none'
+                        }}>
+                            {/* Faux 3D Top face */}
+                            <div style={{
+                                position: 'absolute', top: '-10px', left: '-1px', width: '45px', height: '10px',
+                                backgroundColor: `rgba(0, 255, 255, ${0.6 + (i * 0.1)})`,
+                                borderTopLeftRadius: '2px', borderTopRightRadius: '2px',
+                                transform: 'skewX(45deg)', transformOrigin: 'bottom left'
+                            }} />
+                            {/* Faux 3D Side face */}
+                            <div style={{
+                                position: 'absolute', top: '-10px', left: '44px', width: '10px', height: `${height}px`,
+                                backgroundColor: `rgba(0, 150, 255, ${0.3 + (i * 0.1)})`,
+                                transform: 'skewY(45deg)', transformOrigin: 'top left'
+                            }} />
+                        </div>
+                    );
+                })}
             </div>
         </AbsoluteFill>
     );

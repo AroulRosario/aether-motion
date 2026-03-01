@@ -8,6 +8,7 @@ interface PhantomSubtitlesProps {
     animationType: string;
     startSeconds: number;
     endSeconds: number;
+    visualTags?: string[];
 }
 
 export const PhantomSubtitles: React.FC<PhantomSubtitlesProps> = ({
@@ -15,7 +16,8 @@ export const PhantomSubtitles: React.FC<PhantomSubtitlesProps> = ({
     wordTimestamps,
     animationType,
     startSeconds,
-    endSeconds
+    endSeconds,
+    visualTags
 }) => {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
@@ -42,10 +44,10 @@ export const PhantomSubtitles: React.FC<PhantomSubtitlesProps> = ({
         flexWrap: 'wrap',
         justifyContent: 'center',
         alignItems: 'center',
-        width: '80%',
+        width: '90%',
         textAlign: 'center',
-        gap: '16px',
-        fontSize: '64px',
+        gap: '12px',
+        fontSize: '44px',
         fontFamily: 'Inter, sans-serif',
         fontWeight: 'bold',
     };
@@ -66,27 +68,50 @@ export const PhantomSubtitles: React.FC<PhantomSubtitlesProps> = ({
         opacity = interpolate(frame, [0, 10], [0, 1], { extrapolateRight: 'clamp' });
     }
 
-    return (
-        <div style={{ ...baseAnimStyle, transform: entryTransform, opacity }}>
-            {words.map((w, i) => {
-                const currentTime = (frame / fps) + startSeconds;
-                const isSpeaking = currentTime >= w.startTime && currentTime <= w.endTime;
+    // Make tagString available as a comma-separated format for debugging
+    const tagString = (words as any).visual_tags?.join(', ') || '';
 
-                return (
-                    <span
-                        key={i}
-                        style={{
-                            color: isSpeaking ? '#00FFFF' : '#FFFFFF', // Cyan highlight for exact spoken word
-                            textShadow: isSpeaking ? '0 0 20px rgba(0, 255, 255, 0.8)' : 'none',
-                            transform: isSpeaking ? 'scale(1.1)' : 'scale(1)',
-                            transition: 'all 0.1s ease-out',
-                            opacity: isSpeaking ? 1 : 0.7
-                        }}
-                    >
-                        {w.word}
-                    </span>
-                );
-            })}
+
+    return (
+        <div style={{ ...baseAnimStyle, transform: entryTransform, opacity, flexDirection: 'column', gap: '0px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: '16px' }}>
+                {words.map((w, i) => {
+                    const currentTime = (frame / fps) + startSeconds;
+                    const isSpeaking = currentTime >= w.startTime && currentTime <= w.endTime;
+
+                    return (
+                        <span
+                            key={i}
+                            style={{
+                                color: isSpeaking ? '#00FFFF' : '#FFFFFF',
+                                textShadow: isSpeaking ? '0 0 20px rgba(0, 255, 255, 0.8)' : 'none',
+                                transform: isSpeaking ? 'scale(1.1)' : 'scale(1)',
+                                transition: 'all 0.1s ease-out',
+                                opacity: isSpeaking ? 1 : 0.7
+                            }}
+                        >
+                            {w.word}
+                        </span>
+                    );
+                })}
+            </div>
+
+            {/* Tag Debugging Subtitle */}
+            {visualTags && visualTags.length > 0 && (
+                <div style={{
+                    marginTop: '15px',
+                    padding: '6px 12px',
+                    backgroundColor: 'rgba(5, 8, 18, 0.7)',
+                    border: '1px solid rgba(0, 255, 255, 0.3)',
+                    borderRadius: '20px',
+                    fontSize: '16px',
+                    color: 'rgba(0, 255, 255, 0.8)',
+                    fontFamily: 'monospace',
+                    letterSpacing: '1px'
+                }}>
+                    TAGS: [{visualTags.join(', ')}]
+                </div>
+            )}
         </div>
     );
 };

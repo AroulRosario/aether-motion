@@ -11,10 +11,22 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing text or API Key' }, { status: 400 });
         }
 
+        // 1. Wrap each word in an SSML mark for precise timing
+        // The REST API timepointing feature requires SSML to reliably extract word boundaries.
+        const words = text.split(' ');
+        let ssml = '<speak>';
+        words.forEach((word: string, i: number) => {
+            // Remove punctuation for the mark name to keep it clean, but keep it in the text
+            const markName = `w_${i}`;
+            ssml += `<mark name="${markName}"/>${word} `;
+        });
+        ssml += '</speak>';
+
         const requestBody = {
-            input: { text },
+            input: { ssml },
             voice: { languageCode: 'en-US', name: voiceName || 'en-US-Standard-D' },
             audioConfig: { audioEncoding: 'MP3' },
+            enableTimePointing: ['SSML_MARK']
         };
 
         const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
@@ -33,14 +45,23 @@ export async function POST(req: Request) {
 
         const audioUrl = `data:audio/mp3;base64,${data.audioContent}`;
 
-        // Mocking word timestamps since standard REST synthesize doesn't naturally return them 
-        // without advanced SSML marking enabled
-        const words = text.split(' ');
-        const wordTimestamps = words.map((word: string, i: number) => ({
-            word,
-            startTime: i * 0.4,
-            endTime: (i + 1) * 0.4
-        }));
+        // 2. Parse the real timestamps from the response timepoints
+        const timepoints = data.timepoints || [];
+        const wordTimestamps = words.map((word: string, i: number) => {
+            const mark = timepoints.find((t: any) => t.markName === `w_${i}`);
+            const nextMark = timepoints.find((t: any) => t.markName === `w_${i + 1}`);
+
+            // Google returns time in seconds
+            const startTime = mark ? mark.timeSeconds : (i * 0.4);
+            // End time is either the start of the next word, or +0.4s for the last word
+            const endTime = nextMark ? nextMark.timeSeconds : (startTime + 0.4);
+
+            return {
+                word,
+                startTime,
+                endTime
+            };
+        });
 
         return NextResponse.json({
             audioUrl,
