@@ -38,7 +38,17 @@ export async function POST(req: Request) {
 
         const response = await ai.models.generateContent({
             model: model,
-            contents: prompt + "\n\nBreak this down into sentences for a video. For each sentence give a visual animation type and visual tags.",
+            contents: prompt + `\n\nBreak this down into sentences for a highly polished educational animated video. 
+            For each sentence, provide a highly detailed set of 'visual_tags' that describe exactly what should happen on screen.
+            
+            CRITICAL: If the prompt is about chemistry (like SN1, SN2, Markovnikov), you MUST break the reaction down mechanically step-by-step and use these exact mechanical tags to trigger the engine animations:
+            - 'sn1_leaving_group' (to trigger a bond breaking and an atom detaching)
+            - 'sn1_nucleophile_attack' (to trigger a nucleophile atom attacking a carbocation)
+            - 'electron_flow' (to trigger glowing arrows moving between atoms)
+            - 'carbocation' (to trigger a glowing positive molecule state)
+            - 'markovnikov_addition' (to trigger two separate atoms colliding and bonding)
+            
+            Ensure the script is detailed, paced well, and explains the concept thoroughly with corresponding tags.`,
             config: {
                 responseMimeType: "application/json",
                 responseSchema
