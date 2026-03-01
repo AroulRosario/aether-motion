@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 
+export const maxDuration = 60; // 60 seconds max duration
+export const runtime = 'edge'; // Edge function
+
 export async function POST(req: Request) {
     try {
         const { text, apiKey, voiceName } = await req.json();

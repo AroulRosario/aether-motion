@@ -28,11 +28,25 @@ export default function AetherDashboard() {
     videoUrl: null,
   });
 
+  const fetchJson = async (url: string, options?: RequestInit) => {
+    const res = await fetch(url, options);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      throw new Error(`Server Error: ${res.status} - ${text.slice(0, 100)}`);
+    }
+    if (!res.ok) {
+      throw new Error(data.error || `API Request failed with status ${res.status}`);
+    }
+    return data;
+  };
+
   const verifyGemini = async () => {
     if (!apiKey) return;
     try {
-      const res = await fetch(`/api/models?apiKey=${apiKey}`);
-      const data = await res.json();
+      const data = await fetchJson(`/api/models?apiKey=${apiKey}`);
       if (data.models && data.models.length > 0) {
         setModels(data.models);
         setSelectedModel(data.models[0].id);
@@ -50,8 +64,7 @@ export default function AetherDashboard() {
   const verifyTTS = async () => {
     if (!ttsApiKey) return;
     try {
-      const res = await fetch(`/api/voices?apiKey=${ttsApiKey}`);
-      const data = await res.json();
+      const data = await fetchJson(`/api/voices?apiKey=${ttsApiKey}`);
       if (data.voices && data.voices.length > 0) {
         setVoices(data.voices);
         setSelectedVoice(data.voices[0].id);
@@ -72,24 +85,22 @@ export default function AetherDashboard() {
 
       setState({ ...state, status: 'generating_dna', progress: 10, error: undefined });
 
-      const dnaRes = await fetch('/api/generate-dna', {
+      const dnaData = await fetchJson('/api/generate-dna', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey, model: selectedModel, prompt }),
       });
-      const dnaData = await dnaRes.json();
-      if (!dnaRes.ok) throw new Error(dnaData.error);
       const dna = dnaData.dna;
 
       setState(prev => ({ ...prev, status: 'generating_tts', progress: 50, dna }));
 
       const script = dna.map((d: any) => d.sentence).join(' ');
 
-      const ttsRes = await fetch('/api/tts', {
+      const ttsData = await fetchJson('/api/tts', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: script, apiKey: ttsApiKey, voiceName: selectedVoice })
       });
-      const ttsData = await ttsRes.json();
-      if (!ttsRes.ok) throw new Error(ttsData.error);
 
       setState(prev => ({
         ...prev,
@@ -106,21 +117,26 @@ export default function AetherDashboard() {
 
   const renderVideo = async () => {
     setState(prev => ({ ...prev, status: 'rendering', progress: 50 }));
-    const res = await fetch('/api/render', {
-      method: 'POST',
-      body: JSON.stringify({
-        compositionId: `AetherVideo-${aspectRatio.replace(':', 'x')}`,
-        inputProps: {
-          dna: state.dna,
-          audioUrl: state.audioUrl,
-          wordTimestamps: state.wordTimestamps,
-          aspectRatio
-        }
-      })
-    });
-    const data = await res.json();
-    setState(prev => ({ ...prev, status: 'done', progress: 100, videoUrl: data.videoUrl }));
-    alert(data.message);
+    try {
+      const data = await fetchJson('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compositionId: `AetherVideo-${aspectRatio.replace(':', 'x')}`,
+          inputProps: {
+            dna: state.dna,
+            audioUrl: state.audioUrl,
+            wordTimestamps: state.wordTimestamps,
+            aspectRatio
+          }
+        })
+      });
+      setState(prev => ({ ...prev, status: 'done', progress: 100, videoUrl: data.videoUrl }));
+      alert(data.message || 'Render initiated');
+    } catch (err: any) {
+      setState(prev => ({ ...prev, status: 'error', progress: 100 }));
+      alert(err.message);
+    }
   };
 
   return (

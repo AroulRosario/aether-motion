@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI, Type, Schema } from '@google/genai';
 
+export const maxDuration = 60; // 60 seconds max duration (works on pro)
+export const runtime = 'edge'; // Edge function (provides better stream/execution profiles on Hobby limit)
+
 export async function POST(req: Request) {
     try {
         const { apiKey, model, prompt } = await req.json();
